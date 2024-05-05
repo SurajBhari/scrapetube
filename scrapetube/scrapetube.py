@@ -197,7 +197,12 @@ def get_video(
     data = json.loads(
         get_json_from_html(html, "var ytInitialData = ", 0, "};") + "}"
     )
-    return next(search_dict(data, "videoPrimaryInfoRenderer"))
+    ytInitialPlayerResponse = json.loads(
+        get_json_from_html(html, "var ytInitialPlayerResponse = ", 0, "};") + "}"
+    )
+    returning = next(search_dict(data, "videoPrimaryInfoRenderer"))
+    returning['ytInitialPlayerResponse'] = ytInitialPlayerResponse
+    return returning
 
 
 
@@ -324,3 +329,10 @@ def search_dict(partial: dict, search_key: str) -> Generator[dict, None, None]:
 
 def get_videos_items(data: dict, selector: str) -> Generator[dict, None, None]:
     return search_dict(data, selector)
+
+
+if __name__ == "__main__":
+    from json import dump
+    print("test")
+    with open("test.json", "w") as f:
+        dump(get_video('9bZkp7q19f0'), f, indent=4)
