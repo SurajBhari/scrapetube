@@ -274,7 +274,7 @@ def get_videos(
 
 
 def check_cookies(proxies: dict = None, cookies: str = None) -> bool:
-    """Check if the cookies are valid by making a request to YouTube.
+    """Check if the cookies indicate a logged-in state by trying to access YouTube Studio.
 
     Parameters:
         proxies (``dict``, *optional*):
@@ -285,18 +285,12 @@ def check_cookies(proxies: dict = None, cookies: str = None) -> bool:
     """
     try:
         session = get_session(proxies, cookies)
-        response = session.get("https://www.youtube.com/", timeout=5)
-        if response.status_code != 200:
-            print(f"""
-                Cookies are not valid, status code: {response.status_code}
-                Cookies might have been expired or invalid
-                Response: {response.text}
-            """)
+        response = session.get("https://studio.youtube.com/", timeout=10)
+        if "accounts.google.com" in response.url:
+            return False
         return response.status_code == 200
     except Exception as e:
-        print(f"""
-            Exception checking cookies: 
-            """ + str(e))
+        print(f"Exception checking cookies: {e}")
         return False
 
 
