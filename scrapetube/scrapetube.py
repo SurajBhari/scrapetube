@@ -1,3 +1,4 @@
+import http.cookiejar
 import json
 import time
 from typing import Generator
@@ -18,6 +19,7 @@ def get_channel(
     limit: int = None,
     sleep: float = 1,
     proxies: dict = None,
+    cookies: str = None,
     sort_by: Literal["newest", "oldest", "popular"] = "newest",
     content_type: Literal["videos", "shorts", "streams"] = "videos",
 ) -> Generator[dict, None, None]:
@@ -61,6 +63,9 @@ def get_channel(
             ``"videos"``: Videos
             ``"shorts"``: Shorts
             ``"streams"``: Streams
+
+        cookies (``str``, *optional*):
+            A path to a cookies.txt file containing Netscape HTTP cookies.
     """
 
     base_url = ""
@@ -76,13 +81,13 @@ def get_channel(
         content_type=content_type,
     )
     api_endpoint = "https://www.youtube.com/youtubei/v1/browse"
-    videos = get_videos(url, api_endpoint, "contents", type_property_map[content_type], limit, sleep, proxies, sort_by)
+    videos = get_videos(url, api_endpoint, "contents", type_property_map[content_type], limit, sleep, proxies, cookies, sort_by)
     for video in videos:
         yield video
 
 
 def get_playlist(
-    playlist_id: str, limit: int = None, sleep: int = 1, proxies: dict = None
+    playlist_id: str, limit: int = None, sleep: int = 1, proxies: dict = None, cookies: str = None
 ) -> Generator[dict, None, None]:
 
     """Get videos for a playlist.
@@ -101,11 +106,14 @@ def get_playlist(
         proxies (``dict``, *optional*):
             A dictionary with the proxies you want to use. Ex:
             ``{'https': 'http://username:password@101.102.103.104:3128'}``
+
+        cookies (``str``, *optional*):
+            A path to a cookies.txt file containing Netscape HTTP cookies.
     """
 
     url = f"https://www.youtube.com/playlist?list={playlist_id}"
     api_endpoint = "https://www.youtube.com/youtubei/v1/browse"
-    videos = get_videos(url, api_endpoint, "playlistVideoListRenderer", "playlistVideoRenderer", limit, sleep, proxies)
+    videos = get_videos(url, api_endpoint, "playlistVideoListRenderer", "playlistVideoRenderer", limit, sleep, proxies, cookies)
     for video in videos:
         yield video
 
@@ -117,6 +125,7 @@ def get_search(
     sort_by: Literal["relevance", "upload_date", "view_count", "rating"] = "relevance",
     results_type: Literal["video", "channel", "playlist", "movie"] = "video",
     proxies: dict = None,
+    cookies: str = None,
 ) -> Generator[dict, None, None]:
 
     """Search youtube and get videos.
@@ -148,6 +157,9 @@ def get_search(
             A dictionary with the proxies you want to use. Ex:
             ``{'https': 'http://username:password@101.102.103.104:3128'}``
 
+        cookies (``str``, *optional*):
+            A path to a cookies.txt file containing Netscape HTTP cookies.
+
     """
 
     sort_by_map = {
@@ -168,7 +180,7 @@ def get_search(
     url = f"https://www.youtube.com/results?search_query={query}&sp={param_string}"
     api_endpoint = "https://www.youtube.com/youtubei/v1/search"
     videos = get_videos(
-        url, api_endpoint, "contents", results_type_map[results_type][1], limit, sleep, proxies
+        url, api_endpoint, "contents", results_type_map[results_type][1], limit, sleep, proxies, cookies
     )
     for video in videos:
         yield video
@@ -177,6 +189,8 @@ def get_search(
 
 def get_video(
     id: str,
+    proxies: dict = None,
+    cookies: str = None,
 ) -> dict:
 
     """Get a single video.
@@ -184,9 +198,16 @@ def get_video(
     Parameters:
         id (``str``):
             The video id from the video you want to get.
+
+        proxies (``dict``, *optional*):
+            A dictionary with the proxies you want to use. Ex:
+            ``{'https': 'http://username:password@101.102.103.104:3128'}``
+
+        cookies (``str``, *optional*):
+            A path to a cookies.txt file containing Netscape HTTP cookies.
     """
 
-    session = get_session()
+    session = get_session(proxies, cookies)
     url = f"https://www.youtube.com/watch?v={id}"
     html = get_initial_data(session, url)
     client = json.loads(
@@ -207,9 +228,9 @@ def get_video(
 
 
 def get_videos(
-    url: str, api_endpoint: str, selector_list: str, selector_item: str, limit: int, sleep: float, proxies: dict = None, sort_by: str = None
+    url: str, api_endpoint: str, selector_list: str, selector_item: str, limit: int, sleep: float, proxies: dict = None, cookies: str = None, sort_by: str = None
 ) -> Generator[dict, None, None]:
-    session = get_session(proxies)
+    session = get_session(proxies, cookies)
     is_first = True
     quit_it = False
     count = 0
@@ -252,10 +273,14 @@ def get_videos(
     session.close()
 
 
-def get_session(proxies: dict = None) -> requests.Session:
+def get_session(proxies: dict = None, cookies: str = None) -> requests.Session:
     session = requests.Session()
     if proxies:
         session.proxies.update(proxies)
+    if cookies:
+        jar = http.cookiejar.MozillaCookieJar(cookies)
+        jar.load(ignore_discard=True, ignore_expires=True)
+        session.cookies.update(jar)
     session.headers[
         "User-Agent"
     ] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
@@ -263,7 +288,8 @@ def get_session(proxies: dict = None) -> requests.Session:
     return session
 
 def get_initial_data(session: requests.Session, url: str) -> str:
-    session.cookies.set("CONSENT", "YES+cb", domain=".youtube.com")
+    if "CONSENT" not in session.cookies:
+        session.cookies.set("CONSENT", "YES+cb", domain=".youtube.com")
     response = session.get(url, params={"ucbcb":1})
 
     html = response.text
