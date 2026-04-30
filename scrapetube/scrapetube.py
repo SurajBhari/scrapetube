@@ -224,6 +224,13 @@ def get_video(
     )
     returning = next(search_dict(data, "videoPrimaryInfoRenderer"))
     returning['ytInitialPlayerResponse'] = ytInitialPlayerResponse
+    
+    game_info = next(search_dict(data, "videoAttributeViewModel"), None)
+    if game_info:
+        returning['game_info'] = {
+            "title": game_info.get("title"),
+            "subtitle": game_info.get("subtitle")
+        }
     return returning
 
 
@@ -415,8 +422,17 @@ def get_videos_items(data: dict, selector: str) -> Generator[dict, None, None]:
 
 
 if __name__ == "__main__":
-    vids = get_channel("UCbZZmB8L3IEHutGbvpWo9Ow", content_type="streams")
-    for vid in vids:
-        print(vid['videoId'])
-        break
-    
+    # keep on checking till its different from last
+    last = None
+    while True:
+        vids = get_channel("UCozbwWYgWuJ2_soSnHgad3w", content_type="streams")
+        for vid in vids:
+            break
+        if last is None:
+            last = vid['videoId']
+        elif vid['videoId']!=last:
+            print(f"Video changed: {last} -> {vid['videoId']}")
+            break
+        last = vid['videoId']
+        time.sleep(2)
+        print("ALl good ", last)

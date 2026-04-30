@@ -1,4 +1,4 @@
-# Scrapetube
+# Scrapetube v2.9.2
 This module will help you scrape youtube without the official youtube api and without selenium.
 
 With this module you can:
@@ -45,6 +45,17 @@ videos = scrapetube.get_search("python")
 
 for video in videos:
     print(video['videoId'])
+```
+
+## Get a single video
+```python
+import scrapetube
+
+video = scrapetube.get_video("dBw5qaULUIU")
+
+print(video['title'])
+if 'game_info' in video:
+    print(video['game_info'])
 ```
 
 # Full Documentation
