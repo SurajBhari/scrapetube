@@ -1,15 +1,16 @@
-import http.cookiejar
 import json
 import time
 from typing import Generator
+import http.cookiejar
 
 import requests
 from typing_extensions import Literal
 
 type_property_map = {
-    "videos": "videoRenderer",
-    "streams": "videoRenderer",
-    "shorts": "reelWatchEndpoint"
+    "videos": ["videoRenderer", "lockupViewModel"],
+    "streams": ["videoRenderer", "lockupViewModel"],
+    "shorts": ["reelItemRenderer", "lockupViewModel"],
+    "search": ["videoRenderer", "lockupViewModel"],
 }
 
 def get_channel(
@@ -243,10 +244,42 @@ def get_videos(
             api_key = get_json_from_html(html, "innertubeApiKey", 3)
             session.headers["X-YouTube-Client-Name"] = "1"
             session.headers["X-YouTube-Client-Version"] = client["clientVersion"]
-            data = json.loads(
-                get_json_from_html(html, "var ytInitialData = ", 0, "};") + "}"
-            )
-            data = next(search_dict(data, selector_list), None)
+            # Try multiple patterns for ytInitialData
+            raw_data = None
+            for pattern in ["var ytInitialData = ", 'window["ytInitialData"] = ', 'ytInitialData = ']:
+                start = html.find(pattern)
+                if start != -1:
+                    start += len(pattern)
+                    end = html.find("};", start)
+                    if end != -1:
+                        raw_data = html[start:end] + "}"
+                        break
+            
+            if not raw_data:
+                return
+                
+            try:
+                data = json.loads(raw_data)
+            except Exception:
+                return
+            
+            selectors = [selector_item] if isinstance(selector_item, str) else selector_item
+            
+            potential_data = search_dict(data, selector_list)
+            data = None
+            for p_data in potential_data:
+                found = False
+                for s in selectors:
+                    if next(search_dict(p_data, s), None) is not None:
+                        found = True
+                        break
+                if found:
+                    data = p_data
+                    break
+            
+            if data is None:
+                return
+            
             next_data = get_next_data(data, sort_by)
             is_first = False
             if sort_by and sort_by != "newest": 
@@ -361,26 +394,29 @@ def get_next_data(data: dict, sort_by: str = None) -> dict:
 
 
 def search_dict(partial: dict, search_key: str) -> Generator[dict, None, None]:
-    stack = [partial]
-    while stack:
-        current_item = stack.pop(0)
-        if isinstance(current_item, dict):
-            for key, value in current_item.items():
-                if key == search_key:
-                    yield value
-                else:
-                    stack.append(value)
-        elif isinstance(current_item, list):
-            for value in current_item:
-                stack.append(value)
+    if isinstance(partial, dict):
+        for key, value in partial.items():
+            if key == search_key:
+                yield value
+            yield from search_dict(value, search_key)
+    elif isinstance(partial, list):
+        for value in partial:
+            yield from search_dict(value, search_key)
 
 
 def get_videos_items(data: dict, selector: str) -> Generator[dict, None, None]:
-    return search_dict(data, selector)
+    selectors = [selector] if isinstance(selector, str) else selector
+    for s in selectors:
+        for item in search_dict(data, s):
+            if s == "lockupViewModel":
+                if "contentId" in item:
+                    item["videoId"] = item["contentId"]
+            yield item
 
 
 if __name__ == "__main__":
-    from json import dump
-    print("test")
-    with open("test.json", "w") as f:
-        dump(get_video('9bZkp7q19f0'), f, indent=4)
+    vids = get_channel("UCbZZmB8L3IEHutGbvpWo9Ow", content_type="streams")
+    for vid in vids:
+        print(vid['videoId'])
+        break
+    
