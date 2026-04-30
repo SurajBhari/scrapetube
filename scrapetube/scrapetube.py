@@ -286,8 +286,17 @@ def check_cookies(proxies: dict = None, cookies: str = None) -> bool:
     try:
         session = get_session(proxies, cookies)
         response = session.get("https://www.youtube.com/", timeout=5)
+        if response.status_code != 200:
+            print(f"""
+                Cookies are not valid, status code: {response.status_code}
+                Cookies might have been expired or invalid
+                Response: {response.text}
+            """)
         return response.status_code == 200
-    except Exception:
+    except Exception as e:
+        print(f"""
+            Exception checking cookies: 
+            """ + str(e))
         return False
 
 
