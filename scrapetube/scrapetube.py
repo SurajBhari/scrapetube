@@ -273,6 +273,24 @@ def get_videos(
     session.close()
 
 
+def check_cookies(proxies: dict = None, cookies: str = None) -> bool:
+    """Check if the cookies are valid by making a request to YouTube.
+
+    Parameters:
+        proxies (``dict``, *optional*):
+            A dictionary with the proxies you want to use. Ex:
+            ``{'https': 'http://username:password@101.102.103.104:3128'}``
+        cookies (``str``, *optional*):
+            A path to a cookies.txt file containing Netscape HTTP cookies.
+    """
+    try:
+        session = get_session(proxies, cookies)
+        response = session.get("https://www.youtube.com/", timeout=5)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
 def get_session(proxies: dict = None, cookies: str = None) -> requests.Session:
     session = requests.Session()
     if proxies:
