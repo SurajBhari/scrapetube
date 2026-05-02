@@ -225,12 +225,34 @@ def get_video(
     returning = next(search_dict(data, "videoPrimaryInfoRenderer"))
     returning['ytInitialPlayerResponse'] = ytInitialPlayerResponse
     
-    game_info = next(search_dict(data, "videoAttributeViewModel"), None)
+    game_info = None
+    song_info = []
+    
+    for attr in search_dict(data, "videoAttributeViewModel"):
+        image_style = attr.get("imageStyle")
+        secondary_subtitle = attr.get("secondarySubtitle")
+        title = attr.get("title")
+        
+        
+        # Game: Portrait image style and usually no secondary subtitle
+        # Song: Square image style and usually has a secondary subtitle (album)
+        if image_style == "VIDEO_ATTRIBUTE_IMAGE_STYLE_PORTRAIT" or not secondary_subtitle:
+            game_info = {
+                "title": title,
+                "subtitle": attr.get("subtitle")
+            }
+        else:
+            song_info.append({
+                "title": title,
+                "subtitle": attr.get("subtitle"),
+                "secondary_subtitle": secondary_subtitle.get("content") if isinstance(secondary_subtitle, dict) else secondary_subtitle
+            })
+            
     if game_info:
-        returning['game_info'] = {
-            "title": game_info.get("title"),
-            "subtitle": game_info.get("subtitle")
-        }
+        returning['game_info'] = game_info
+    if song_info:
+        returning['song_info'] = song_info
+        
     return returning
 
 
