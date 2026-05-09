@@ -225,26 +225,30 @@ def get_video(
     returning = next(search_dict(data, "videoPrimaryInfoRenderer"))
     returning['ytInitialPlayerResponse'] = ytInitialPlayerResponse
     
+    storyboard = next(search_dict(ytInitialPlayerResponse, "playerStoryboardSpecRenderer"), None)
+    if storyboard:
+        returning['storyboard_info'] = storyboard
+    
     game_info = None
     song_info = []
     
     for attr in search_dict(data, "videoAttributeViewModel"):
         image_style = attr.get("imageStyle")
-        secondary_subtitle = attr.get("secondarySubtitle")
         title = attr.get("title")
+        subtitle = attr.get("subtitle")
+        secondary_subtitle = attr.get("secondarySubtitle")
         
-        
-        # Game: Portrait image style and usually no secondary subtitle
-        # Song: Square image style and usually has a secondary subtitle (album)
-        if image_style == "VIDEO_ATTRIBUTE_IMAGE_STYLE_PORTRAIT" or not secondary_subtitle:
+        # Game: Portrait image style
+        if image_style == "VIDEO_ATTRIBUTE_IMAGE_STYLE_PORTRAIT":
             game_info = {
                 "title": title,
-                "subtitle": attr.get("subtitle")
+                "subtitle": subtitle
             }
-        else:
+        # Song: Square image style
+        elif image_style == "VIDEO_ATTRIBUTE_IMAGE_STYLE_SQUARE":
             song_info.append({
                 "title": title,
-                "subtitle": attr.get("subtitle"),
+                "subtitle": subtitle,
                 "secondary_subtitle": secondary_subtitle.get("content") if isinstance(secondary_subtitle, dict) else secondary_subtitle
             })
             
@@ -411,7 +415,7 @@ def get_next_data(data: dict, sort_by: str = None) -> dict:
         endpoint = next(
             search_dict(data, "feedFilterChipBarRenderer"), None)["contents"][sort_by_map[sort_by]]["chipCloudChipRenderer"]["navigationEndpoint"]
     else:
-        endpoint = next(search_dict(data, "continuationEndpoint"), None)
+        endpoint = next((ep for ep in search_dict(data, "continuationEndpoint") if "continuationCommand" in ep), None)
     if not endpoint:
         return None
     next_data = {

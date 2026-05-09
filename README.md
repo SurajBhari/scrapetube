@@ -1,4 +1,4 @@
-# Scrapetube v2.9.2
+# Scrapetube v2.9.4
 This module will help you scrape youtube without the official youtube api and without selenium.
 
 With this module you can:
@@ -7,6 +7,7 @@ With this module you can:
 * Get all videos from a Youtube channel.
 * Get all videos from a playlist.
 * Search youtube.
+* Get detailed metadata for a single video.
 
 # Installation
 
@@ -51,11 +52,22 @@ for video in videos:
 ```python
 import scrapetube
 
-video = scrapetube.get_video("dBw5qaULUIU")
+video = scrapetube.get_video("m36494ifS_c")
 
-print(video['title'])
+print(video['title']['runs'][0]['text'])
+
+# Get game info if present
 if 'game_info' in video:
-    print(video['game_info'])
+    print(f"Game: {video['game_info']['title']}")
+
+# Get song info if present (list of songs)
+if 'song_info' in video:
+    for song in video['song_info']:
+        print(f"Song: {song['title']} by {song['subtitle']}")
+
+# Get storyboard info if present
+if 'storyboard_info' in video:
+    print(f"Storyboard Spec: {video['storyboard_info']['spec']}")
 ```
 
 # Full Documentation
